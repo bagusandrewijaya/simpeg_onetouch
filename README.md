@@ -3,10 +3,10 @@
 - stretching image menjadikan model wajah susah mengenali
 
 
-task success
+#task success
 - sudah melakukan get data terdaftar
 - sudah melakukan pemeriksaan ke api pengecekan face
 
 
-task belum selesai
+#task belum selesai
 - Tinggal melakukan absensi setelah face detector menyatakan 200 dan sukses 
