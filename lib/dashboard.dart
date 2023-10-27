@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:blurry_modal_progress_hud/blurry_modal_progress_hud.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:path/path.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -20,6 +22,70 @@ class _CameraScreenState extends State<CameraScreen> {
   late Future<void> _initializeControllerFuture;
   List<Data> dataList = [];
   List<Data> filteredList = [];
+  Future<String> imageToBase64(String imagePath) async {
+    final bytes = await File(imagePath).readAsBytes();
+    return base64Encode(bytes);
+  }
+
+  Future<void> postImageAndNokar(
+      String imagePath, String nokar, BuildContext context) async {
+    final String apiUrl =
+        'https://api.rsummi.co.id:1843/insertabsen3'; // Ganti dengan URL endpoint Anda
+
+    String base64Image = await imageToBase64(imagePath);
+
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      body: {
+        'image': base64Image,
+        'nokar': nokar,
+      },
+    );
+
+    if (response.statusCode == 200 &&
+        jsonDecode(response.body)['metadata']['code'] == 200) {
+      setState(() {
+        isloading = false;
+      });
+
+      print(jsonDecode(response.body));
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.green[400],
+          content: Padding(
+            padding: EdgeInsets.symmetric(
+                vertical: 10.0), // Atur sesuai kebutuhan untuk mengubah tinggi
+            child: Text(
+              'Sukses Absensi',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      setState(() {
+        isloading = false;
+      });
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red[400],
+          content: Padding(
+            padding: EdgeInsets.symmetric(
+                vertical: 10.0), // Atur sesuai kebutuhan untuk mengubah tinggi
+            child: Text(
+              'Wajah Tidak Dikenal',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+          // Mengatur ketinggian Snackbar dari atas
+        ),
+      );
+    }
+  }
 
   TextEditingController searchController = TextEditingController();
   Future<List<String>> fetchNokarTerdaftar() async {
@@ -118,6 +184,7 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> kirimGambarKeServer(BuildContext context) async {
     setState(() {
       isloading = true;
+      print(data);
     });
 
     // Ganti URL sesuai dengan alamat server Anda
@@ -142,20 +209,9 @@ class _CameraScreenState extends State<CameraScreen> {
         setState(() {
           image = jsonResponse['response']['imagresult'];
           status2 = jsonResponse['response']['status2'];
+          postImageAndNokar(tmpic!.path, data, context);
         });
         print(image);
-
-        setState(() {
-          isloading = false;
-        });
-        final scaffoldMessenger = ScaffoldMessenger.of(context);
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text('$jsonResponse'),
-            behavior: SnackBarBehavior.floating,
-            elevation: 4.0, // Mengatur ketinggian Snackbar dari atas
-          ),
-        );
       } else {
         setState(() {
           isloading = false;
@@ -166,14 +222,33 @@ class _CameraScreenState extends State<CameraScreen> {
           image = jsonResponse['response']['imagresult'];
           status2 = jsonResponse['response']['status2'];
         });
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red[400],
+            content: Padding(
+              padding: EdgeInsets.symmetric(
+                  vertical:
+                      10.0), // Atur sesuai kebutuhan untuk mengubah tinggi
+              child: Text(
+                'Wajah Tidak Dikenal',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+            behavior: SnackBarBehavior.floating,
+            // Mengatur ketinggian Snackbar dari atas
+          ),
+        );
       }
     } catch (error) {
+      setState(() {
+        isloading = false;
+      });
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('$error'),
           behavior: SnackBarBehavior.floating,
-          elevation: 4.0, // Mengatur ketinggian Snackbar dari atas
         ),
       );
     }
@@ -181,73 +256,102 @@ class _CameraScreenState extends State<CameraScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Expanded(
-                child: Column(
+    return BlurryModalProgressHUD(
+      inAsyncCall: isloading,
+      blurEffectIntensity: 4,
+      progressIndicator: SpinKitFadingCircle(
+        color: Colors.blue[900],
+        size: 90.0,
+      ),
+      dismissible: false,
+      opacity: 0.4,
+      color: Colors.black54,
+      child: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: FutureBuilder<void>(
+                          future: _initializeControllerFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.done) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                    16.0), // Anda bisa mengganti angka ini sesuai kebutuhan
+                                child: CameraPreview(_controller),
+                              );
+                            } else {
+                              return Center(child: CircularProgressIndicator());
+                            }
+                          },
+                        ),
+                      )
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 16,
+                ),
+                Expanded(
+                    child: Column(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: TextField(
+                        controller: searchController,
+                        decoration: InputDecoration(
+                          labelText: "Cari",
+                          hintText: "Cari Berdasarkan Nama",
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(
+                                15.0), // Sesuaikan nilai ini sesuai keinginan
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Colors.blue, width: 1.0),
+                            borderRadius: BorderRadius.circular(
+                                15.0), // Sesuaikan nilai ini sesuai keinginan
+                          ),
+                        ),
+                        onChanged: (value) {
+                          filterSearchResults(value);
+                        },
+                      ),
+                    ),
                     Expanded(
-                      child: FutureBuilder<void>(
-                        future: _initializeControllerFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.done) {
-                            return CameraPreview(_controller);
-                          } else {
-                            return Center(child: CircularProgressIndicator());
-                          }
+                      child: ListView.builder(
+                        itemCount: filteredList.length,
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                data = filteredList[index].nokar;
+                              });
+                              takePicture(context);
+                            },
+                            child: ListTile(
+                              title: Text(filteredList[index].name),
+                              // subtitle: Text(filteredList[index].nokar),
+                            ),
+                          );
                         },
                       ),
                     ),
                   ],
-                ),
-              ),
-              Expanded(
-                  child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        labelText: "Search",
-                        hintText: "Search by name",
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                      onChanged: (value) {
-                        filterSearchResults(value);
-                      },
+                ) // Gantikan 'your_image.png' dengan path gambar Anda
                     ),
-                  ),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: filteredList.length,
-                      itemBuilder: (context, index) {
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              data = filteredList[index].nokar;
-                            });
-                            takePicture(context);
-                          },
-                          child: ListTile(
-                            title: Text(filteredList[index].name),
-                            subtitle: Text(filteredList[index].nokar),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ) // Gantikan 'your_image.png' dengan path gambar Anda
-                  ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

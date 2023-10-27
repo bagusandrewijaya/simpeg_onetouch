@@ -9,7 +9,11 @@ void main() async {
     (camera) => camera.lensDirection == CameraLensDirection.front,
     orElse: () => cameras.first,
   );
-  runApp(MaterialApp(
-    home: CameraScreen(camera: firstCamera),
-  ));
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true),
+      home: CameraScreen(camera: firstCamera),
+    ),
+  );
 }
